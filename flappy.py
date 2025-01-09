@@ -3,10 +3,12 @@ import os
 import pygame, sys, random
 from pygame.time import Clock
 from test_model import predict
+
 screen = pygame.display.set_mode((1024, 1024))
 gravity = 0.05
 clock = Clock()
 
+DEBUG_SHOW_VARIABLES = True  # If True, values of variables fed to the model are display on screen
 SAVE_HISTORY = False  # If True, gameplay history is saved to a file
 MODEL_CONTROL = True  # If True, the model plays the game autonomously
 
@@ -82,7 +84,7 @@ class PipeManager:
             pipe.draw_and_update(dt)
         if len(self.pipes_list) < 1:
             return
-        if self.pipes_list[0].x < -1024:
+        while self.pipes_list[0].x < -32:
             self.pipes_list.pop(0)
 
 
@@ -90,13 +92,32 @@ def get_control_data(bird, pipe_manager):
     bird_rect = bird.bird_rect
     bird_y = bird_rect.centery
     if len(pipe_manager.pipes_list) < 1:
-        return bird_y, bird.vertical_movement, 512, 2000
+        return bird_y, bird.vertical_movement, 512, -25
     next_pipe = pipe_manager.pipes_list[0]
     dist_to_pipe = next_pipe.x - bird_rect.centerx
     if dist_to_pipe < -100:
         next_pipe = pipe_manager.pipes_list[1]
         dist_to_pipe = next_pipe.x - bird_rect.centerx
     return [bird_y, bird.vertical_movement, next_pipe.y, dist_to_pipe]
+
+
+def show_variables(control_data, bird_rect):
+    font = pygame.font.SysFont(pygame.font.get_default_font(), 32)
+    bird_height, bird_mv, pipe_y, pipe_dist = control_data
+    pipe_dist_surface = font.render(f"Pipe dist: {pipe_dist}", True, (255, 255, 0))
+    pipe_y_surface = font.render(f"Pipe y: {pipe_y}", True, (255, 255, 0))
+    bird_height_surface = font.render(f"Bird height: {bird_height}", True, (255, 255, 0))
+    bird_mv_surface = font.render(f"Bird mv: {bird_mv}", True, (255, 255, 0))
+
+    pipe_dist_rect = pipe_dist_surface.get_rect(center=(288, 300))
+    pipe_y_rect = pipe_y_surface.get_rect(center=(bird_rect.centerx + pipe_dist, pipe_y))
+    bird_height_rect = bird_height_surface.get_rect(center=(288, bird_height))
+    bird_mv_rect = bird_mv_surface.get_rect(center=(288, bird_height + 50))
+
+    screen.blit(pipe_dist_surface, pipe_dist_rect)
+    screen.blit(pipe_y_surface, pipe_y_rect)
+    screen.blit(bird_height_surface, bird_height_rect)
+    screen.blit(bird_mv_surface, bird_mv_rect)
 
 
 class DataCollector:
@@ -114,8 +135,6 @@ class DataCollector:
 
     def update_csv(self):
         if not SAVE_HISTORY:
-            return
-        if time_survived < 10:
             return
         df = pd.DataFrame(self.gameplay_history,
                           columns=["bird_y", "bird_vertical_movement", "pipe_y", "pipe_dist", "space_pressed"])
@@ -143,7 +162,7 @@ background_surface = pygame.transform.scale(background_surface, (1024, 1024))
 
 def reset():
     ground = Ground(0, 896)
-    bird = Bird(100, 100)
+    bird = Bird(100, 512)
     pipe_manager = PipeManager()
     SPAWNPIPE = pygame.USEREVENT
     pygame.time.set_timer(SPAWNPIPE, 1200)
@@ -152,7 +171,7 @@ def reset():
 
 ground, bird, pipe_manager, SPAWNPIPE, time_survived = reset()
 data_collector = DataCollector()
-
+pygame.init()
 dt = clock.tick(60)
 while True:
     SPACE_PRESSED = 0
@@ -165,17 +184,20 @@ while True:
             sys.exit()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                bird.jump()
                 SPACE_PRESSED = 1
         if event.type == SPAWNPIPE:
             pipe_manager.add_pipe()
     control_data = get_control_data(bird, pipe_manager)
     if MODEL_CONTROL:
         decision = predict(control_data)
-        if decision>0.5:
-            bird.jump()
+        if decision > 0.5:
+            SPACE_PRESSED = 1
     data_collector.add_gameplay_frame(control_data, SPACE_PRESSED)
+    if SPACE_PRESSED:
+        bird.jump()
     screen.blit(background_surface, (0, 0))
+    if DEBUG_SHOW_VARIABLES:
+        show_variables(control_data, bird.bird_rect)
     if check_collisions(bird.bird_rect, pipe_manager):
         data_collector.clear_recent_history()
         data_collector.update_csv()
