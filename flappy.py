@@ -5,7 +5,7 @@ screen = pygame.display.set_mode((1024, 1024))
 gravity = 0.05
 clock = Clock()
 
-# TODO: Check for collisions
+
 # TODO: Make a class for getting gameplay data
 
 class Bird:
@@ -24,11 +24,9 @@ class Bird:
         self.vertical_movement = min(self.vertical_movement, 20)
         self.y += self.vertical_movement
         self.bird_rect.centery = self.y
-        print(f"Vertical movement: {self.vertical_movement}")
 
     def jump(self):
         self.vertical_movement = -15
-
 
 class Ground:
     ground_surface = pygame.image.load("assets/ground.png")
@@ -84,20 +82,34 @@ class PipeManager:
             self.pipes_list.pop(0)
 
 
+def check_collisions(bird_rect, pipe_manager):
+    if bird_rect.bottom < 0 or bird_rect.top > 896:
+        return True
+    for pipe in pipe_manager.pipes_list:
+        if bird_rect.colliderect(pipe.bottom_rect) or bird_rect.colliderect(pipe.top_rect):
+            return True
+    return False
+
 background_surface = pygame.image.load("assets/Background.png").convert()
 background_surface = pygame.transform.scale(background_surface, (1024, 1024))
 
-ground = Ground(0, 896)
-bird = Bird(100, 100)
-pipe_manager = PipeManager()
+def reset():
+    background_surface = pygame.image.load("assets/Background.png").convert()
+    background_surface = pygame.transform.scale(background_surface, (1024, 1024))
 
-SPAWNPIPE = pygame.USEREVENT
-pygame.time.set_timer(SPAWNPIPE, 1200)
+    ground = Ground(0, 896)
+    bird = Bird(100, 100)
+    pipe_manager = PipeManager()
+    SPAWNPIPE = pygame.USEREVENT
+    pygame.time.set_timer(SPAWNPIPE, 1200)
+    return ground, bird, pipe_manager, SPAWNPIPE
+
+ground, bird, pipe_manager, SPAWNPIPE = reset()
+
 
 dt = clock.tick(60)
 while True:
     dt = clock.tick(60)
-    print(f"FPS: {clock.get_fps()}")
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -108,7 +120,10 @@ while True:
         if event.type == SPAWNPIPE:
             pipe_manager.add_pipe()
     screen.blit(background_surface, (0, 0))
-    ground.draw_and_update(dt)
-    bird.draw_and_update(dt)
-    pipe_manager.draw_and_update(dt)
-    pygame.display.update()
+    if check_collisions(bird.bird_rect, pipe_manager):
+        ground, bird, pipe_manager, SPAWNPIPE = reset()
+    else:
+        ground.draw_and_update(dt)
+        bird.draw_and_update(dt)
+        pipe_manager.draw_and_update(dt)
+        pygame.display.update()
