@@ -2,13 +2,13 @@ import pandas as pd
 import os
 import pygame, sys, random
 from pygame.time import Clock
-
+from test_model import predict
 screen = pygame.display.set_mode((1024, 1024))
 gravity = 0.05
 clock = Clock()
 
-SAVE_HISTORY = True  # If True, gameplay history is saved to a file
-MODEL_CONTROL = False  # If True, the model plays the game autonomously
+SAVE_HISTORY = False  # If True, gameplay history is saved to a file
+MODEL_CONTROL = True  # If True, the model plays the game autonomously
 
 
 class Bird:
@@ -170,6 +170,10 @@ while True:
         if event.type == SPAWNPIPE:
             pipe_manager.add_pipe()
     control_data = get_control_data(bird, pipe_manager)
+    if MODEL_CONTROL:
+        decision = predict(control_data)
+        if decision>0.5:
+            bird.jump()
     data_collector.add_gameplay_frame(control_data, SPACE_PRESSED)
     screen.blit(background_surface, (0, 0))
     if check_collisions(bird.bird_rect, pipe_manager):
