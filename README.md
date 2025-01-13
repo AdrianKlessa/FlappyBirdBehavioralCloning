@@ -9,4 +9,6 @@ This repository contains scripts for:
 
 The gameplay history (and model) files are included in the repo to aid reproducibility of results.
 
+<img src='./replay.gif'>
+
 Assets used: https://megacrash.itch.io/flappy-bird-assets (licensed under CC0)
